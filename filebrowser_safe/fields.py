@@ -16,6 +16,7 @@ from django.db.models.fields import Field
 from django.template.loader import render_to_string
 from django.utils.encoding import smart_str
 from django.utils.translation import ugettext_lazy as _
+from django.forms.boundfield import BoundField
 
 # filebrowser imports
 from filebrowser_safe.settings import *
@@ -45,7 +46,7 @@ class FileBrowseWidget(Input):
         directory = self.directory
         if self.directory:
             if callable(self.directory):
-                directory = self.directory(attrs['kkkkk'])
+                directory = self.directory(attrs['instance'])
             directory = os.path.normpath(datetime.datetime.now().strftime(directory))
             fullpath = os.path.join(get_directory(), directory)
             if not default_storage.isdir(fullpath):
@@ -65,20 +66,17 @@ class FileBrowseWidget(Input):
         return render_to_string("filebrowser/custom_field.html", dict(locals(), MEDIA_URL=MEDIA_URL))
 
 
-from django.forms.boundfield import BoundField
-class MyTestField(BoundField):
-    @property
-    def my_dir(self):
-        return 'sometest'
-
+class InstanceBoundField(BoundField):
+    '''
+    Adding instance to attrs dict, so it can be retrieved in models.py
+    in post_upload_to and blog_upload_to, and generate upload_to path based 
+    on blog slug
+    '''
     def as_widget(self, widget=None, attrs=None, only_initial=False):
-        if attrs:
-            attrs['kkkkk'] = self.form.instance
-        else: 
-            attrs = {}
-            attrs['kkkkk'] = self.form.instance
-        #attrs['inst'] = self.form.instance
-        return super(MyTestField, self).as_widget(widget, attrs, only_initial)
+        attrs = {} if not attrs else attrs
+        attrs['instance'] = self.form.instance
+        return super(InstanceBoundField, self).\
+                     as_widget(widget, attrs, only_initial)
 
 class FileBrowseFormField(forms.CharField):
     widget = FileBrowseWidget
@@ -92,9 +90,6 @@ class FileBrowseFormField(forms.CharField):
                  *args, **kwargs):
         self.max_length, self.min_length = max_length, min_length
         self.directory = directory
-        #kwargs['widget']['attrs']
-        #bf = self.get_bound_field()
-        #print(dir(self))
         self.extensions = extensions
         if format:
             self.format = format or ''
@@ -102,7 +97,7 @@ class FileBrowseFormField(forms.CharField):
         super(FileBrowseFormField, self).__init__(*args, **kwargs)
 
     def get_bound_field(self, form, field_name):
-        return MyTestField(form, self, field_name)
+        return InstanceBoundField(form, self, field_name)
 
     def clean(self, value):
         value = super(FileBrowseFormField, self).clean(value)
