@@ -1,9 +1,13 @@
 from __future__ import unicode_literals
-from future.builtins import str, super
+from future.builtins import str
+from future.builtins import super
+# coding: utf-8
 
+# imports
 import os
 import datetime
 
+# django imports
 from django.db import models
 from django import forms
 from django.core.files.storage import default_storage
@@ -13,9 +17,11 @@ from django.template.loader import render_to_string
 from django.utils.encoding import smart_str
 from django.utils.translation import ugettext_lazy as _
 
+# filebrowser imports
 from filebrowser_safe.settings import *
 from filebrowser_safe.base import FileObject
 from filebrowser_safe.functions import url_to_path, get_directory
+from future.utils import with_metaclass
 
 
 class FileBrowseWidget(Input):
@@ -39,7 +45,7 @@ class FileBrowseWidget(Input):
         directory = self.directory
         if self.directory:
             if callable(self.directory):
-                directory = self.directory()
+                directory = self.directory(attrs['kkkkk'])
             directory = os.path.normpath(datetime.datetime.now().strftime(directory))
             fullpath = os.path.join(get_directory(), directory)
             if not default_storage.isdir(fullpath):
@@ -59,6 +65,21 @@ class FileBrowseWidget(Input):
         return render_to_string("filebrowser/custom_field.html", dict(locals(), MEDIA_URL=MEDIA_URL))
 
 
+from django.forms.boundfield import BoundField
+class MyTestField(BoundField):
+    @property
+    def my_dir(self):
+        return 'sometest'
+
+    def as_widget(self, widget=None, attrs=None, only_initial=False):
+        if attrs:
+            attrs['kkkkk'] = self.form.instance
+        else: 
+            attrs = {}
+            attrs['kkkkk'] = self.form.instance
+        #attrs['inst'] = self.form.instance
+        return super(MyTestField, self).as_widget(widget, attrs, only_initial)
+
 class FileBrowseFormField(forms.CharField):
     widget = FileBrowseWidget
 
@@ -71,11 +92,17 @@ class FileBrowseFormField(forms.CharField):
                  *args, **kwargs):
         self.max_length, self.min_length = max_length, min_length
         self.directory = directory
+        #kwargs['widget']['attrs']
+        #bf = self.get_bound_field()
+        #print(dir(self))
         self.extensions = extensions
         if format:
             self.format = format or ''
             self.extensions = extensions or EXTENSIONS.get(format)
         super(FileBrowseFormField, self).__init__(*args, **kwargs)
+
+    def get_bound_field(self, form, field_name):
+        return MyTestField(form, self, field_name)
 
     def clean(self, value):
         value = super(FileBrowseFormField, self).clean(value)
@@ -87,15 +114,12 @@ class FileBrowseFormField(forms.CharField):
         return value
 
 
-class FileBrowseField(Field):
+class FileBrowseField(with_metaclass(models.SubfieldBase, Field)):
     def __init__(self, *args, **kwargs):
         self.directory = kwargs.pop('directory', '')
         self.extensions = kwargs.pop('extensions', '')
         self.format = kwargs.pop('format', '')
         return super(FileBrowseField, self).__init__(*args, **kwargs)
-
-    def from_db_value(self, value, expression, connection, context):
-        return self.to_python(value)
 
     def to_python(self, value):
         if not value or isinstance(value, FileObject):
@@ -127,3 +151,9 @@ class FileBrowseField(Field):
         }
         defaults.update(kwargs)
         return super(FileBrowseField, self).formfield(**defaults)
+
+try:
+    from south.modelsinspector import add_introspection_rules
+    add_introspection_rules([], ["^filebrowser_safe\.fields\.FileBrowseField"])
+except ImportError:
+    pass
