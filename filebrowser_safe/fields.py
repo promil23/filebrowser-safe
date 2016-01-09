@@ -46,7 +46,11 @@ class FileBrowseWidget(Input):
         directory = self.directory
         if self.directory:
             if callable(self.directory):
-                directory = self.directory(attrs['instance'])
+                instance = attrs.get('instance')
+                if instance and instance.id:
+                    directory = self.directory(attrs['instance'])
+                else:
+                    directory = self.directory()
             directory = os.path.normpath(datetime.datetime.now().strftime(directory))
             fullpath = os.path.join(get_directory(), directory)
             if not default_storage.isdir(fullpath):
