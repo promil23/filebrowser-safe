@@ -45,8 +45,8 @@ class FileBrowseWidget(Input):
             value = ""
         directory = self.directory
         if self.directory:
+            instance = attrs.pop('instance', None)
             if callable(self.directory):
-                instance = attrs.get('instance')
                 if instance and instance.id:
                     directory = self.directory(attrs['instance'])
                 else:
