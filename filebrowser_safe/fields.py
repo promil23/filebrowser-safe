@@ -48,7 +48,7 @@ class FileBrowseWidget(Input):
             instance = attrs.pop('instance', None)
             if callable(self.directory):
                 if instance and instance.id:
-                    directory = self.directory(attrs['instance'])
+                    directory = self.directory(instance)
                 else:
                     directory = self.directory()
             directory = os.path.normpath(datetime.datetime.now().strftime(directory))
